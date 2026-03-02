@@ -14,5 +14,5 @@ test-smoke:
 	bash scripts/smoke_test.sh
 
 test-integration:
-	docker run --rm --network=host -v "$$PWD:/app" -w /app/services/ingestion-go golang:1.22-alpine go test -v ./tests/...
+	docker compose run --rm ingestion-go go test -v ./tests/...
 
