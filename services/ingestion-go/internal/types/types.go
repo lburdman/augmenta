@@ -25,11 +25,12 @@ type IngestRequest struct {
 
 // IngestResponse represents the response back to the caller.
 type IngestResponse struct {
-	RequestID        string `json:"requestId"`
-	TenantID         string `json:"tenantId"`
-	SourceID         string `json:"sourceId"`
-	AnonymizedText   string `json:"anonymized_text,omitempty"`
-	DownstreamStatus int    `json:"downstream_status,omitempty"`
+	RequestID      string `json:"requestId"`
+	TenantID       string `json:"tenantId"`
+	SourceID       string `json:"sourceId"`
+	AnonymizedText string `json:"anonymized_text,omitempty"`
+	LLMOutput      string `json:"llm_output,omitempty"`
+	Provider       string `json:"provider,omitempty"`
 }
 
 // PrivacyAnonymizeRequest matches the payload expected by privacy-service/anonymize.
@@ -47,10 +48,16 @@ type PrivacyAnonymizeResponse struct {
 	Stats           interface{}   `json:"stats"`
 }
 
-// DownstreamReceiveRequest is what we forward to downstream-mock.
-type DownstreamReceiveRequest struct {
-	RequestID      string `json:"requestId"`
-	TenantID       string `json:"tenantId"`
-	SourceID       string `json:"sourceId"`
-	AnonymizedText string `json:"anonymized_text"`
+// LLMGatewayRequest is what we forward to llm-gateway-go
+type LLMGatewayRequest struct {
+	RequestID string `json:"requestId"`
+	TenantID  string `json:"tenantId"`
+	SourceID  string `json:"sourceId"`
+	Prompt    string `json:"prompt"`
+}
+
+// LLMGatewayResponse is what we receive from llm-gateway-go
+type LLMGatewayResponse struct {
+	RequestID string `json:"requestId"`
+	Output    string `json:"output"`
 }

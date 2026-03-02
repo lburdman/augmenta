@@ -13,14 +13,14 @@ import (
 
 type Client struct {
 	privacyURL    string
-	downstreamURL string
+	llmGatewayURL string
 	httpClient    *http.Client
 }
 
-func NewClient(privacyURL, downstreamURL string) *Client {
+func NewClient(privacyURL, llmGatewayURL string) *Client {
 	return &Client{
 		privacyURL:    privacyURL,
-		downstreamURL: downstreamURL,
+		llmGatewayURL: llmGatewayURL,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -58,24 +58,33 @@ func (c *Client) Anonymize(ctx context.Context, req types.PrivacyAnonymizeReques
 	return &providerResp, nil
 }
 
-// ForwardDownstream forwards the anonymized payload to the mock downstream service.
-func (c *Client) ForwardDownstream(ctx context.Context, req types.DownstreamReceiveRequest) (int, error) {
+// CompleteLLM forwards the anonymized payload to the LLM Gateway.
+func (c *Client) CompleteLLM(ctx context.Context, req types.LLMGatewayRequest) (*types.LLMGatewayResponse, error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return 0, fmt.Errorf("failed to marshal downstream request: %w", err)
+		return nil, fmt.Errorf("failed to marshal llm gateway request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.downstreamURL+"/receive", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.llmGatewayURL+"/complete", bytes.NewReader(reqBody))
 	if err != nil {
-		return 0, fmt.Errorf("failed to create downstream request: %w", err)
+		return nil, fmt.Errorf("failed to create llm gateway request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return 0, fmt.Errorf("failed to send downstream request: %w", err)
+		return nil, fmt.Errorf("failed to send llm gateway request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode, nil
+    if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("llm gateway returned status: %d", resp.StatusCode)
+	}
+
+	var gatewayResp types.LLMGatewayResponse
+	if err := json.NewDecoder(resp.Body).Decode(&gatewayResp); err != nil {
+		return nil, fmt.Errorf("failed to decode llm gateway response: %w", err)
+	}
+
+	return &gatewayResp, nil
 }
