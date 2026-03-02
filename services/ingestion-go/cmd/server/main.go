@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 	internalhttp "github.com/lburdman/augmenta/services/ingestion-go/internal/http"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/privacy"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
+	"github.com/lburdman/augmenta/services/ingestion-go/internal/vault"
 	"gopkg.in/yaml.v3"
 )
 
@@ -43,7 +45,28 @@ func main() {
 	}
 
 	client := privacy.NewClient(privacyURL, llmGatewayURL)
-	server := internalhttp.NewServer(cfg.Flows, client)
+
+	// Vault Initialization
+	dynamoEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
+	if dynamoEndpoint == "" {
+		dynamoEndpoint = "http://dynamodb:8000"
+	}
+	vaultTableName := os.Getenv("VAULT_TABLE")
+	if vaultTableName == "" {
+		vaultTableName = "augmenta_vault"
+	}
+
+	var vlt vault.Vault
+	if os.Getenv("VAULT_BACKEND") == "dynamodb" {
+		log.Println("Initializing DynamoDB Vault...")
+		v, err := vault.NewDynamoVault(context.Background(), dynamoEndpoint, vaultTableName)
+		if err != nil {
+			log.Fatalf("Failed to initialize vault: %v", err)
+		}
+		vlt = v
+	}
+
+	server := internalhttp.NewServer(cfg.Flows, client, vlt)
 
 	port := os.Getenv("PORT")
 	if port == "" {

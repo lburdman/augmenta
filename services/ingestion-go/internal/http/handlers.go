@@ -10,12 +10,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/privacy"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
+	"github.com/lburdman/augmenta/services/ingestion-go/internal/vault"
 )
 
+// Server dependencies
 type Server struct {
 	mux       *http.ServeMux
 	flows     map[string]types.FlowConfig
 	apiClient *privacy.Client
+	vault     vault.Vault
 }
 
 // key defines the lookup format for a tenant+source config.
@@ -23,11 +26,12 @@ func flowKey(tenantID, sourceID string) string {
 	return tenantID + ":" + sourceID
 }
 
-func NewServer(flowCfgs []types.FlowConfig, apiClient *privacy.Client) *Server {
+func NewServer(flowCfgs []types.FlowConfig, apiClient *privacy.Client, vlt vault.Vault) *Server {
 	s := &Server{
 		mux:       http.NewServeMux(),
 		flows:     make(map[string]types.FlowConfig),
 		apiClient: apiClient,
+		vault:     vlt,
 	}
 
 	// Index flows for fast lookup
@@ -111,6 +115,22 @@ func (s *Server) handleIngest() http.HandlerFunc {
 			return
 		}
 
+		// 3.5 Store Mappings in Vault
+		if s.vault != nil && len(privacyResp.Mappings) > 0 {
+			ttl := flowCfg.TTLSeconds
+			if ttl <= 0 {
+				ttl = 3600 // default
+			}
+			err := s.vault.PutMappings(r.Context(), tenantID, reqID, ttl, privacyResp.Mappings)
+			if err != nil {
+				log.Printf("reqId=%s step=vault status=error err=%q", reqID, err)
+				if flowCfg.FailClosed {
+					writeError(w, http.StatusInternalServerError, "Failed to secure anonymized mappings")
+					return
+				}
+			}
+		}
+
 		// 4. LLM Gateway Forwarding
 		// ONLY send the anonymized text
 		llmReq := types.LLMGatewayRequest{
@@ -128,18 +148,53 @@ func (s *Server) handleIngest() http.HandlerFunc {
 			return
 		}
 
+		// 5. Rehydration
+		var rehydratedOutput *string
+		rehydrationStatus := "skipped"
+		if flowCfg.RehydrationPolicy == "on_success" && s.vault != nil {
+			rehydrated := llmResp.Output
+			failedRehydration := false
+
+			// Rehydrate all original mappings dynamically
+			for _, m := range privacyResp.Mappings {
+				if strings.Contains(rehydrated, m.Token) {
+					orig, err := s.vault.GetOriginal(r.Context(), tenantID, reqID, m.Token)
+					if err != nil || orig == "" {
+						log.Printf("reqId=%s step=rehydration status=token_missing_or_expired token=%s err=%v", reqID, m.Token, err)
+						failedRehydration = true
+						break
+					}
+					rehydrated = strings.ReplaceAll(rehydrated, m.Token, orig)
+				}
+			}
+
+			if failedRehydration {
+				if flowCfg.FailClosed {
+					writeError(w, http.StatusForbidden, "Rehydration failed due to expired or missing token")
+					return
+				}
+				rehydrationStatus = "failed"
+			} else {
+				rehydratedOutput = &rehydrated
+				rehydrationStatus = "performed"
+			}
+		}
+
 		latency := time.Since(startTime)
 		log.Printf("reqId=%s tenantId=%s sourceId=%s step=completed status=success latency_ms=%d", 
 			reqID, tenantID, sourceID, latency.Milliseconds())
 
-		// 5. Response
+		// 6. Response
 		resp := types.IngestResponse{
-			RequestID:      reqID,
-			TenantID:       tenantID,
-			SourceID:       sourceID,
-			AnonymizedText: privacyResp.AnonymizedText,
-			LLMOutput:      llmResp.Output,
-			Provider:       "echo",
+			RequestID:        reqID,
+			TenantID:         tenantID,
+			SourceID:         sourceID,
+			AnonymizedText:   privacyResp.AnonymizedText,
+			LLMOutput:        llmResp.Output,
+			RehydratedOutput: rehydratedOutput,
+			Rehydration:      rehydrationStatus,
+			TTLSeconds:       flowCfg.TTLSeconds,
+			Provider:         "echo",
 		}
 
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
