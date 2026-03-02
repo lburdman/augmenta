@@ -32,3 +32,8 @@ async def get_last():
     if not last_received_payload:
         return {"error": "No payload received yet."}
     return last_received_payload
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "ok"}

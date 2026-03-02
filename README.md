@@ -51,9 +51,11 @@ flows:
 ### 2. Downstream Mock Service (Python)
 **`GET http://localhost:9000/last`**
 - Intercepts and holds the forwarded payloads securely without logging PII. The `/last` endpoint is strictly for verifying that PII wasn't forwarded during tests.
+- **Swagger UI:** `http://localhost:9000/docs`
 
 ### 3. Privacy Provider Service (Python)
 **`POST http://localhost:8000/anonymize`**
+- **Swagger UI:** `http://localhost:8000/docs`
 
 **Request Schema:**
 ```json
