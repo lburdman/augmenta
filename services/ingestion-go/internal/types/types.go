@@ -28,15 +28,25 @@ type IngestRequest struct {
 
 // IngestResponse represents the response back to the caller.
 type IngestResponse struct {
-	RequestID        string `json:"requestId"`
-	TenantID         string `json:"tenantId"`
-	SourceID         string `json:"sourceId"`
-	AnonymizedText   string `json:"anonymized_text,omitempty"`
-	LLMOutput        string `json:"llm_output,omitempty"`
+	RequestID        string  `json:"requestId"`
+	TenantID         string  `json:"tenantId"`
+	SourceID         string  `json:"sourceId"`
+	AnonymizedText   string  `json:"anonymized_text,omitempty"`
+	LLMOutput        string  `json:"llm_output,omitempty"`
 	RehydratedOutput *string `json:"rehydrated_output"`
-	Rehydration      string `json:"rehydration,omitempty"`
-	TTLSeconds       int    `json:"ttlSeconds,omitempty"`
-	Provider         string `json:"provider,omitempty"`
+	Rehydration      string  `json:"rehydration,omitempty"`
+	TTLSeconds       int     `json:"ttlSeconds,omitempty"`
+	Provider         string  `json:"provider,omitempty"`
+}
+
+// AppErrorResponse is the standardized controlled error structure returned to clients.
+type AppErrorResponse struct {
+	RequestID  string `json:"requestId"`
+	TenantID   string `json:"tenantId,omitempty"`
+	SourceID   string `json:"sourceId,omitempty"`
+	Step       string `json:"step,omitempty"`
+	ReasonCode string `json:"reason_code,omitempty"`
+	Message    string `json:"message"`
 }
 
 // PrivacyAnonymizeRequest matches the payload expected by privacy-service/anonymize.

@@ -77,7 +77,7 @@ func handleComplete(w http.ResponseWriter, r *http.Request) {
 	lastRequestMutex.Unlock()
 
 	if req.SourceID == "expire_demo" {
-		time.Sleep(2 * time.Second)
+		time.Sleep(2100 * time.Millisecond)
 	}
 
 	// Pretend to call an LLM with "ECHO:" provider stub

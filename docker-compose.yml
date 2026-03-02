@@ -18,11 +18,16 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
+      - FLOWS_CONFIG_PATH=/configs/flows.yaml
       - PRIVACY_SERVICE_URL=http://privacy-service:8000
       - LLM_GATEWAY_URL=http://llm-gateway-go:7001
-      - FLOWS_CONFIG_PATH=/configs/flows.yaml
       - DYNAMODB_ENDPOINT=http://dynamodb:8000
       - VAULT_BACKEND=dynamodb
+      - VAULT_TABLE=augmenta_vault
+      - VAULT_TIMEOUT_MS=2000
+      - PRIVACY_TIMEOUT_MS=2000
+      - LLM_TIMEOUT_MS=3500
+      - AUDIT_ADMIN_ENABLED=true
     volumes:
       - ./configs:/configs
     depends_on:
