@@ -37,12 +37,12 @@ func main() {
 		privacyURL = "http://privacy-service:8000"
 	}
 
-	downstreamURL := os.Getenv("DOWNSTREAM_MOCK_URL")
-	if downstreamURL == "" {
-		downstreamURL = "http://downstream-mock:9000"
+	llmGatewayURL := os.Getenv("LLM_GATEWAY_URL")
+	if llmGatewayURL == "" {
+		llmGatewayURL = "http://llm-gateway-go:7001"
 	}
 
-	client := privacy.NewClient(privacyURL, downstreamURL)
+	client := privacy.NewClient(privacyURL, llmGatewayURL)
 	server := internalhttp.NewServer(cfg.Flows, client)
 
 	port := os.Getenv("PORT")

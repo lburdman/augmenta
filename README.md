@@ -12,7 +12,7 @@ A minimal proof-of-concept for detecting and anonymizing PII using Microsoft Pre
 
 ## Architecture & Configuration
 
-The application operates an ingestion webhook that immediately routes requests via a generic `privacy-service` for anonymization before forwarding them to downstream systems securely. 
+The application operates an ingestion webhook that immediately routes requests via a generic `privacy-service` for anonymization before forwarding them to an LLM Gateway for evaluation.
 
 Routing configuration is defined in `/configs/flows.yaml`:
 ```yaml
@@ -44,16 +44,21 @@ flows:
   "tenantId": "tenantA",
   "sourceId": "demo",
   "anonymized_text": "Contact me at <REDACTED>",
-  "downstream_status": 200
+  "llm_output": "ECHO: Contact me at <REDACTED>",
+  "provider": "echo"
 }
 ```
 
-### 2. Downstream Mock Service (Python)
+### 2. LLM Gateway Service (Go)
+**`GET http://localhost:7001/last`**
+- Intercepts and holds the forwarded anonymized requests securely. This endpoint is strictly for verifying that PII wasn't forwarded during tests.
+
+### 3. Downstream Mock Service (Python)
 **`GET http://localhost:9000/last`**
-- Intercepts and holds the forwarded payloads securely without logging PII. The `/last` endpoint is strictly for verifying that PII wasn't forwarded during tests.
+- Maintained as an alternative sink.
 - **Swagger UI:** `http://localhost:9000/docs`
 
-### 3. Privacy Provider Service (Python)
+### 4. Privacy Provider Service (Python)
 **`POST http://localhost:8000/anonymize`**
 - **Swagger UI:** `http://localhost:8000/docs`
 
