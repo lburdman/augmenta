@@ -21,11 +21,14 @@ services:
       - PRIVACY_SERVICE_URL=http://privacy-service:8000
       - LLM_GATEWAY_URL=http://llm-gateway-go:7001
       - FLOWS_CONFIG_PATH=/configs/flows.yaml
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000
+      - VAULT_BACKEND=dynamodb
     volumes:
       - ./configs:/configs
     depends_on:
       - privacy-service
       - llm-gateway-go
+      - dynamodb
 
   llm-gateway-go:
     build:
@@ -44,3 +47,9 @@ services:
       - "9000:9000"
     environment:
       - PORT=9000
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+    ports:
+      - "8001:8000"
