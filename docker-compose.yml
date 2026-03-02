@@ -19,7 +19,7 @@ services:
     environment:
       - PORT=8080
       - PRIVACY_SERVICE_URL=http://privacy-service:8000
-      - LLM_GATEWAY_URL=http://llm-gateway-go:7000
+      - LLM_GATEWAY_URL=http://llm-gateway-go:7001
       - FLOWS_CONFIG_PATH=/configs/flows.yaml
     volumes:
       - ./configs:/configs
@@ -32,9 +32,9 @@ services:
       context: ./services/llm-gateway-go
       dockerfile: Dockerfile
     ports:
-      - "7000:7000"
+      - "7001:7001"
     environment:
-      - PORT=7000
+      - PORT=7001
 
   downstream-mock:
     build:

@@ -11,7 +11,7 @@ import (
 
 const (
 	ingestionURL  = "http://localhost:8080/ingest/webhook/demo"
-	downstreamURL = "http://localhost:9000/last"
+	gatewayURL = "http://llm-gateway-go:7000/last"
 )
 
 func TestIngestionForwardingWithoutPII(t *testing.T) {
@@ -45,9 +45,10 @@ func TestIngestionForwardingWithoutPII(t *testing.T) {
 	}
 
 	var ingestResp struct {
-		RequestID        string `json:"requestId"`
-		AnonymizedText   string `json:"anonymized_text"`
-		DownstreamStatus int    `json:"downstream_status"`
+		RequestID      string `json:"requestId"`
+		AnonymizedText string `json:"anonymized_text"`
+		LLMOutput      string `json:"llm_output"`
+		Provider       string `json:"provider"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&ingestResp); err != nil {
 		t.Fatalf("Failed to decode ingestion response: %v", err)
@@ -59,42 +60,38 @@ func TestIngestionForwardingWithoutPII(t *testing.T) {
 	if !strings.Contains(ingestResp.AnonymizedText, "<REDACTED>") {
 		t.Errorf("Ingestion response text not redacted: %s", ingestResp.AnonymizedText)
 	}
-	if ingestResp.DownstreamStatus != 200 {
-		t.Errorf("Expected downstream status 200, got %d", ingestResp.DownstreamStatus)
+	if !strings.HasPrefix(ingestResp.LLMOutput, "ECHO: ") {
+		t.Errorf("Ingestion LLMOutput does not start with ECHO: %s", ingestResp.LLMOutput)
+	}
+	if ingestResp.Provider != "echo" {
+		t.Errorf("Expected provider 'echo', got %s", ingestResp.Provider)
 	}
 
-	// 2. Fetch the last recieved payload from the downstream mock
-	resp2, err := client.Get(downstreamURL)
+	// 2. Fetch the last recieved payload from the gateway mock
+	resp2, err := client.Get(gatewayURL)
 	if err != nil {
-		t.Fatalf("Failed to fetch from downstream mock: %v", err)
+		t.Fatalf("Failed to fetch from gateway: %v", err)
 	}
 	defer resp2.Body.Close()
 
 	if resp2.StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK from downstream mock, got %d", resp2.StatusCode)
+		t.Fatalf("Expected 200 OK from gateway, got %d", resp2.StatusCode)
 	}
 
-	var downstreamResp map[string]interface{}
-	if err := json.NewDecoder(resp2.Body).Decode(&downstreamResp); err != nil {
-		t.Fatalf("Failed to decode downstream response: %v", err)
+	var gatewayResp map[string]interface{}
+	if err := json.NewDecoder(resp2.Body).Decode(&gatewayResp); err != nil {
+		t.Fatalf("Failed to decode gateway response: %v", err)
 	}
 
 	// 3 & 4. Assertions on the downstream payload
-	reqIDDownstream, ok := downstreamResp["requestId"].(string)
+	reqIDDownstream, ok := gatewayResp["requestId"].(string)
 	if !ok || reqIDDownstream != ingestResp.RequestID {
-		t.Errorf("Downstream RequestID Mismatch. Expected=%s, Got=%v", ingestResp.RequestID, reqIDDownstream)
+		t.Errorf("Gateway RequestID Mismatch. Expected=%s, Got=%v", ingestResp.RequestID, reqIDDownstream)
 	}
 
-	downstreamText, ok := downstreamResp["anonymized_text"].(string)
-	if !ok || downstreamText == "" {
-		t.Errorf("Downstream payload missing anonymized_text")
-	}
-
-	if strings.Contains(downstreamText, "john.doe@example.com") {
-		t.Errorf("CRITICAL FAILURE: Downstream payload contained raw PII email. Text received: %s", downstreamText)
-	}
-	
-	if !strings.Contains(downstreamText, "<REDACTED>") {
-		t.Errorf("Downstream text missing REDACTED token. Text received: %s", downstreamText)
+	// Double check that we aren't leaking the email in any field of the dictionary metadata
+	rawJSON, _ := json.Marshal(gatewayResp)
+	if strings.Contains(string(rawJSON), "john.doe@example.com") {
+		t.Errorf("CRITICAL FAILURE: LLM Gateway payload contained raw PII email. Text received: %s", string(rawJSON))
 	}
 }

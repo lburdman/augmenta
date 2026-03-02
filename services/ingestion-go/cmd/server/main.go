@@ -39,7 +39,7 @@ func main() {
 
 	llmGatewayURL := os.Getenv("LLM_GATEWAY_URL")
 	if llmGatewayURL == "" {
-		llmGatewayURL = "http://llm-gateway-go:7000"
+		llmGatewayURL = "http://llm-gateway-go:7001"
 	}
 
 	client := privacy.NewClient(privacyURL, llmGatewayURL)
