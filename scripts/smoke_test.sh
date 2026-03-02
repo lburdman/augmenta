@@ -7,7 +7,7 @@ set -e
 ENDPOINT="http://localhost:8000/anonymize"
 
 # Request JSON
-REQUEST_BODY=$(cat <<EOF
+REQUEST_BODY=$(cat <<'EOF'
 {
   "requestId": "smoke-test-123",
   "tenantId": "tenant-xyz",
@@ -38,9 +38,9 @@ if echo "$RESPONSE" | grep -q 'john.doe@example.com'; then
   exit 1
 fi
 
-if echo "$RESPONSE" | grep -q 'anonymized_text'; then
-  echo "✅ SMOKE TEST PASSED: Response contains anonymized_text and no original email."
+if echo "$RESPONSE" | grep -q 'anonymized_text' && echo "$RESPONSE" | grep -q '<REDACTED>'; then
+  echo "✅ SMOKE TEST PASSED: Response contains anonymized_text and <REDACTED> token."
 else
-  echo "❌ SMOKE TEST FAILED: Response does not look correct."
+  echo "❌ SMOKE TEST FAILED: Response does not look correct or missing REDACTED token."
   exit 1
 fi
