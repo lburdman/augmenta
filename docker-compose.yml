@@ -23,11 +23,14 @@ services:
       - LLM_GATEWAY_URL=http://llm-gateway-go:7001
       - DYNAMODB_ENDPOINT=http://dynamodb:8000
       - VAULT_BACKEND=dynamodb
-      - VAULT_TABLE=augmenta_vault
+      - VAULT_KEYS_TABLE=augmenta_vault_keys
+      - VAULT_ITEMS_TABLE=augmenta_vault_items
       - VAULT_TIMEOUT_MS=2000
       - PRIVACY_TIMEOUT_MS=2000
       - LLM_TIMEOUT_MS=3500
       - AUDIT_ADMIN_ENABLED=true
+      - VAULT_ENCRYPTION_MODE=dev
+      - VAULT_MASTER_KEY_B64=${VAULT_MASTER_KEY_B64:-MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
     volumes:
       - ./configs:/configs
     depends_on:
