@@ -1,7 +1,9 @@
 flows:
   - tenantId: tenantA
     sourceId: demo
+    ttlSeconds: 3600
+    rehydrationPolicy: "on_success"
+    failClosed: true
     operators:
       DEFAULT:
-        type: replace
-        new_value: "<REDACTED>"
+        type: token

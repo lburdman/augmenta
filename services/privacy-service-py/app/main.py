@@ -22,15 +22,15 @@ anonymizer = AnonymizerEngine()
 logger.info("Engines initialized.")
 
 class OperatorParams(BaseModel):
-    type: str
-    new_value: str
+    type: str = "token"
+    new_value: str = ""
 
 class AnonymizeRequest(BaseModel):
     requestId: str
     tenantId: str
     text: str
     operators: Dict[str, OperatorParams] = Field(
-        default_factory=lambda: {"DEFAULT": OperatorParams(type="replace", new_value="<REDACTED>")}
+        default_factory=lambda: {"DEFAULT": OperatorParams(type="token", new_value="")}
     )
 
 class AnalyzerResultDto(BaseModel):
@@ -43,8 +43,14 @@ class StatsDto(BaseModel):
     entities_total: int
     entities_by_type: Dict[str, int]
 
+class EntityMappingDto(BaseModel):
+    token: str
+    entity_type: str
+    original: str
+
 class AnonymizeResponse(BaseModel):
     anonymized_text: str
+    mappings: List[EntityMappingDto]
     analyzer_results: List[AnalyzerResultDto]
     stats: StatsDto
 
@@ -59,18 +65,43 @@ async def anonymize(req: AnonymizeRequest, request: Request):
     # 1. Analyze text for PII
     analyzer_results = analyzer.analyze(text=req.text, language="en")
     
-    # 2. Configure operators
-    # By default we map the provided operators to AnonymizerEngine OperatorConfig
-    operators_config = {}
-    for op_key, op_val in req.operators.items():
-        operators_config[op_key] = OperatorConfig(op_val.type, {"new_value": op_val.new_value})
+    # 2. Assign tokens and construct mapping
+    # Sort by start position ascending, then end descending to process inner/outer correctly
+    sorted_results = sorted(analyzer_results, key=lambda x: (x.start, -x.end))
     
-    # 3. Anonymize
-    anonymizer_result = anonymizer.anonymize(
-        text=req.text,
-        analyzer_results=analyzer_results,
-        operators=operators_config
-    )
+    filtered_results = []
+    last_end = -1
+    for res in sorted_results:
+        # Ignore overlapping spans to prevent token corruption
+        if res.start >= last_end:
+            filtered_results.append(res)
+            last_end = res.end
+
+    mappings = []
+    mappings_dtos = []
+    seq_counter = {}
+    
+    # Build list of mappings for replacement
+    for res in filtered_results:
+        seq = seq_counter.get(res.entity_type, 0) + 1
+        seq_counter[res.entity_type] = seq
+        
+        token = f"[[AUG:{res.entity_type}:{seq}]]"
+        original = req.text[res.start:res.end]
+        
+        mappings.append({
+            "token": token,
+            "entity_type": res.entity_type,
+            "original": original,
+            "start": res.start,
+            "end": res.end
+        })
+        mappings_dtos.append(EntityMappingDto(token=token, entity_type=res.entity_type, original=original))
+    
+    # 3. Anonymize/Tokenize backwards to safely apply replacements
+    anonymized_text = req.text
+    for m in reversed(mappings):
+        anonymized_text = anonymized_text[:m["start"]] + m["token"] + anonymized_text[m["end"]:]
     
     # 4. Prepare statistics
     entities_by_type = {}
@@ -103,7 +134,8 @@ async def anonymize(req: AnonymizeRequest, request: Request):
     )
     
     return AnonymizeResponse(
-        anonymized_text=anonymizer_result.text,
+        anonymized_text=anonymized_text,
+        mappings=mappings_dtos,
         analyzer_results=results_dto,
         stats=stats
     )

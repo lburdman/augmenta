@@ -8,9 +8,12 @@ type OperatorParams struct {
 
 // FlowConfig defines the configuration for a single source webhook flow.
 type FlowConfig struct {
-	TenantID  string                    `yaml:"tenantId"`
-	SourceID  string                    `yaml:"sourceId"`
-	Operators map[string]OperatorParams `yaml:"operators"`
+	TenantID          string                    `yaml:"tenantId"`
+	SourceID          string                    `yaml:"sourceId"`
+	TTLSeconds        int                       `yaml:"ttlSeconds"`
+	RehydrationPolicy string                    `yaml:"rehydrationPolicy"`
+	FailClosed        bool                      `yaml:"failClosed"`
+	Operators         map[string]OperatorParams `yaml:"operators"`
 }
 
 // ConfigFile represents the root of the flows.yaml configuration.
@@ -25,12 +28,15 @@ type IngestRequest struct {
 
 // IngestResponse represents the response back to the caller.
 type IngestResponse struct {
-	RequestID      string `json:"requestId"`
-	TenantID       string `json:"tenantId"`
-	SourceID       string `json:"sourceId"`
-	AnonymizedText string `json:"anonymized_text,omitempty"`
-	LLMOutput      string `json:"llm_output,omitempty"`
-	Provider       string `json:"provider,omitempty"`
+	RequestID        string `json:"requestId"`
+	TenantID         string `json:"tenantId"`
+	SourceID         string `json:"sourceId"`
+	AnonymizedText   string `json:"anonymized_text,omitempty"`
+	LLMOutput        string `json:"llm_output,omitempty"`
+	RehydratedOutput *string `json:"rehydrated_output"`
+	Rehydration      string `json:"rehydration,omitempty"`
+	TTLSeconds       int    `json:"ttlSeconds,omitempty"`
+	Provider         string `json:"provider,omitempty"`
 }
 
 // PrivacyAnonymizeRequest matches the payload expected by privacy-service/anonymize.
@@ -41,11 +47,19 @@ type PrivacyAnonymizeRequest struct {
 	Operators map[string]OperatorParams `json:"operators"`
 }
 
+// EntityMapping represents a token mapped to its original plaintext value
+type EntityMapping struct {
+	Token      string `json:"token"`
+	EntityType string `json:"entity_type"`
+	Original   string `json:"original"`
+}
+
 // PrivacyAnonymizeResponse represents what is returned by the privacy service.
 type PrivacyAnonymizeResponse struct {
-	AnonymizedText  string        `json:"anonymized_text"`
-	AnalyzerResults []interface{} `json:"analyzer_results"`
-	Stats           interface{}   `json:"stats"`
+	AnonymizedText  string          `json:"anonymized_text"`
+	Mappings        []EntityMapping `json:"mappings"`
+	AnalyzerResults []interface{}   `json:"analyzer_results"`
+	Stats           interface{}     `json:"stats"`
 }
 
 // LLMGatewayRequest is what we forward to llm-gateway-go
