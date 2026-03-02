@@ -1,0 +1,7 @@
+flows:
+  - tenantId: tenantA
+    sourceId: demo
+    operators:
+      DEFAULT:
+        type: replace
+        new_value: "<REDACTED>"
