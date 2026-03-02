@@ -11,3 +11,29 @@ services:
       - PORT=8000
     volumes:
       - ./services/privacy-service-py:/app
+
+  ingestion-go:
+    build:
+      context: ./services/ingestion-go
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PRIVACY_SERVICE_URL=http://privacy-service:8000
+      - DOWNSTREAM_MOCK_URL=http://downstream-mock:9000
+      - FLOWS_CONFIG_PATH=/configs/flows.yaml
+    volumes:
+      - ./configs:/configs
+    depends_on:
+      - privacy-service
+      - downstream-mock
+
+  downstream-mock:
+    build:
+      context: ./services/downstream-mock
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - PORT=9000
