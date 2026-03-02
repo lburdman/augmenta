@@ -58,7 +58,13 @@ flows:
 - Maintained as an alternative sink.
 - **Swagger UI:** `http://localhost:9000/docs`
 
-### 4. Privacy Provider Service (Python)
+### 4. Admin Audit Access (Go plugin)
+**`GET http://localhost:8080/admin/audit`** *(Optional)*
+- Exposes an in-memory ring-buffer containing the 200 most recent structured JSON events covering Pipeline steps (`anonymize`, `vault_put`, `llm_call`, `rehydrate`).
+- Contains `metrics` blocks but **No** PII, source text, or result outputs.
+- Can be activated safely in pre-prod by injecting `AUDIT_ADMIN_ENABLED=true`.
+
+### 5. Privacy Provider Service (Python)
 **`POST http://localhost:8000/anonymize`**
 - **Swagger UI:** `http://localhost:8000/docs`
 

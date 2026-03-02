@@ -5,8 +5,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	internalhttp "github.com/lburdman/augmenta/services/ingestion-go/internal/http"
+	"github.com/lburdman/augmenta/services/ingestion-go/internal/audit"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/privacy"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/vault"
@@ -38,13 +41,27 @@ func main() {
 	if privacyURL == "" {
 		privacyURL = "http://privacy-service:8000"
 	}
+	privacyTimeoutStr := os.Getenv("PRIVACY_TIMEOUT_MS")
+	privacyTimeout := 2000 // default 2s
+	if privacyTimeoutStr != "" {
+		if val, err := strconv.Atoi(privacyTimeoutStr); err == nil {
+			privacyTimeout = val
+		}
+	}
 
 	llmGatewayURL := os.Getenv("LLM_GATEWAY_URL")
 	if llmGatewayURL == "" {
 		llmGatewayURL = "http://llm-gateway-go:7001"
 	}
+	llmTimeoutStr := os.Getenv("LLM_TIMEOUT_MS")
+	llmTimeout := 2000 // default 2s
+	if llmTimeoutStr != "" {
+		if val, err := strconv.Atoi(llmTimeoutStr); err == nil {
+			llmTimeout = val
+		}
+	}
 
-	client := privacy.NewClient(privacyURL, llmGatewayURL)
+	client := privacy.NewClient(privacyURL, llmGatewayURL, time.Duration(privacyTimeout)*time.Millisecond, time.Duration(llmTimeout)*time.Millisecond)
 
 	// Vault Initialization
 	dynamoEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
@@ -55,18 +72,31 @@ func main() {
 	if vaultTableName == "" {
 		vaultTableName = "augmenta_vault"
 	}
+	vaultTimeoutStr := os.Getenv("VAULT_TIMEOUT_MS")
+	vaultTimeout := 0 // default unlimited context
+	if vaultTimeoutStr != "" {
+		if val, err := strconv.Atoi(vaultTimeoutStr); err == nil {
+			vaultTimeout = val
+		}
+	}
 
 	var vlt vault.Vault
 	if os.Getenv("VAULT_BACKEND") == "dynamodb" {
 		log.Println("Initializing DynamoDB Vault...")
-		v, err := vault.NewDynamoVault(context.Background(), dynamoEndpoint, vaultTableName)
+		v, err := vault.NewDynamoVault(context.Background(), dynamoEndpoint, vaultTableName, time.Duration(vaultTimeout)*time.Millisecond)
 		if err != nil {
 			log.Fatalf("Failed to initialize vault: %v", err)
 		}
 		vlt = v
 	}
 
-	server := internalhttp.NewServer(cfg.Flows, client, vlt)
+	var auditLogger audit.Logger
+	if os.Getenv("AUDIT_ADMIN_ENABLED") == "true" {
+		log.Println("Initializing Audit In-Memory Ring Buffer Logger (Dev Only)...")
+		auditLogger = audit.NewRingBufferLogger(200)
+	}
+
+	server := internalhttp.NewServer(cfg.Flows, client, vlt, auditLogger)
 
 	port := os.Getenv("PORT")
 	if port == "" {

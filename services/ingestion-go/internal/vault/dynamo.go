@@ -30,6 +30,7 @@ type VaultItem struct {
 type DynamoVault struct {
 	client    *dynamodb.Client
 	tableName string
+	timeout   time.Duration
 }
 
 func initClient(endpointURL string) *dynamodb.Client {
@@ -50,9 +51,9 @@ func initClient(endpointURL string) *dynamodb.Client {
 }
 
 // NewDynamoVault initializes the DynamoDB client and ensures the table exists.
-func NewDynamoVault(ctx context.Context, endpointURL, tableName string) (*DynamoVault, error) {
+func NewDynamoVault(ctx context.Context, endpointURL, tableName string, timeout time.Duration) (*DynamoVault, error) {
 	client := initClient(endpointURL)
-	v := &DynamoVault{client: client, tableName: tableName}
+	v := &DynamoVault{client: client, tableName: tableName, timeout: timeout}
 	
 	if err := v.ensureTableExists(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ensure table exists: %w", err)
@@ -116,6 +117,12 @@ func (v *DynamoVault) PutMappings(ctx context.Context, tenantID, requestID strin
 	if len(mappings) == 0 {
 		return nil
 	}
+	
+	if v.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, v.timeout)
+		defer cancel()
+	}
 
 	now := getNow()
 	expiresAt := now + int64(ttlSeconds)
@@ -158,6 +165,12 @@ func (v *DynamoVault) PutMappings(ctx context.Context, tenantID, requestID strin
 func (v *DynamoVault) GetOriginal(ctx context.Context, tenantID, requestID, token string) (string, error) {
 	pk := fmt.Sprintf("TENANT#%s#REQ#%s", tenantID, requestID)
 	sk := fmt.Sprintf("TOKEN#%s", token)
+
+	if v.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, v.timeout)
+		defer cancel()
+	}
 
 	out, err := v.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(v.tableName),
