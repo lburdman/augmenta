@@ -53,8 +53,24 @@ func NewServer(flowCfgs []types.FlowConfig, apiClient *privacy.Client, vlt vault
 	return s
 }
 
+// corsMiddleware wraps the assigned handler to inject permissive Cross-Origin headers
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Tenant-ID")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
+	corsMiddleware(s.mux).ServeHTTP(w, r)
 }
 
 func writeAppError(w http.ResponseWriter, reqID, tenantID, sourceID string, appErr *errorsx.AppError) {

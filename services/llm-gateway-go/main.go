@@ -111,6 +111,22 @@ func handleLast(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(lastRequestMeta)
 }
 
+// corsMiddleware wraps the assigned handler to inject permissive Cross-Origin headers
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Tenant-ID")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	log.SetFlags(0)
 
@@ -125,7 +141,7 @@ func main() {
 	}
 
 	log.Printf("Starting LLM Gateway Echo Provider on port %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
