@@ -29,7 +29,7 @@ services:
       - LLM_TIMEOUT_MS=3500
       - AUDIT_ADMIN_ENABLED=true
       - VAULT_ENCRYPTION_MODE=dev
-      - VAULT_MASTER_KEY_B64=${VAULT_MASTER_KEY_B64:-MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
+      - VAULT_MASTER_KEY_B64=${VAULT_MASTER_KEY_B64}
       - VAULT_KEYS_TABLE=augmenta_vault_keys
       - VAULT_ITEMS_TABLE=augmenta_vault_items
     volumes:
