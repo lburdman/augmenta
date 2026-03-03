@@ -25,6 +25,13 @@ flows:
         new_value: "<REDACTED>"
 ```
 
+### Vault Encryption Environments (Phase 4B)
+To test tokenization encryption with local DEV keys, bind these config variables to `ingestion-go`:
+- `VAULT_ENCRYPTION_MODE`: `dev`
+- `VAULT_MASTER_KEY_B64`: 32-byte Base64 DEV string (e.g. `MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=`)
+- `VAULT_KEYS_TABLE`: `augmenta_vault_keys`
+- `VAULT_ITEMS_TABLE`: `augmenta_vault_items`
+
 ## API Endpoints
 
 ### 1. Ingestion Service (Go)
