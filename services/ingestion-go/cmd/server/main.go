@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"log"
 	"net/http"
 	"os"
@@ -84,31 +83,7 @@ func main() {
 	var vlt vault.Vault
 	if os.Getenv("VAULT_BACKEND") == "dynamodb" {
 		log.Println("Initializing DynamoDB Vault...")
-
-		encMode := os.Getenv("VAULT_ENCRYPTION_MODE")
-		if encMode == "" {
-			encMode = "dev"
-		}
-
-		masterKeyB64 := os.Getenv("VAULT_MASTER_KEY_B64")
-		if masterKeyB64 == "" {
-			log.Fatalf("VAULT_MASTER_KEY_B64 is required for vault encryption")
-		}
-		masterKey, err := base64.StdEncoding.DecodeString(masterKeyB64)
-		if err != nil || len(masterKey) != 32 {
-			log.Fatalf("VAULT_MASTER_KEY_B64 must be a valid 32-byte base64 string")
-		}
-
-		keysTable := os.Getenv("VAULT_KEYS_TABLE")
-		if keysTable == "" {
-			keysTable = "augmenta_vault_keys"
-		}
-		itemsTable := os.Getenv("VAULT_ITEMS_TABLE")
-		if itemsTable == "" {
-			itemsTable = "augmenta_vault_items"
-		}
-
-		v, err := vault.NewDynamoVault(context.Background(), dynamoEndpoint, keysTable, itemsTable, time.Duration(vaultTimeout)*time.Millisecond, masterKey, encMode)
+		v, err := vault.NewDynamoVault(context.Background(), dynamoEndpoint, vaultTableName, time.Duration(vaultTimeout)*time.Millisecond)
 		if err != nil {
 			log.Fatalf("Failed to initialize vault: %v", err)
 		}

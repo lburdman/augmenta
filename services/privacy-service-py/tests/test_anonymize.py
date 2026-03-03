@@ -33,7 +33,7 @@ def test_anonymize_email_and_phone():
     
     # The anonymized text shouldn't contain the email
     assert "jane.doe@example.com" not in anonymized_text
-    assert "<REDACTED>" in anonymized_text
+    assert "[[AUG:EMAIL_ADDRESS:1]]" in anonymized_text
     
     # Check the analyzer results contain EMAIL_ADDRESS
     entity_types = [res["entity_type"] for res in data["analyzer_results"]]
