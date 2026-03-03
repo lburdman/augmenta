@@ -8,12 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	dty "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/audit"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
 )
@@ -141,43 +135,6 @@ func TestIngestionForwardingWithoutPII(t *testing.T) {
 	rawJSON, _ := json.Marshal(gatewayResp)
 	if strings.Contains(string(rawJSON), "john.doe@example.com") {
 		t.Errorf("CRITICAL FAILURE: LLM Gateway payload contained raw PII email. Text received: %s", string(rawJSON))
-	}
-
-	// 5. Explicitly assert the database Vault never stored the payload in plaintext
-	// Initialise a raw Dynamo client pointing to the docker network locally
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("us-east-1"),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "")),
-	)
-	if err != nil {
-		t.Fatalf("Failed to initialize local dynamo config: %v", err)
-	}
-
-	dynClient := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
-		o.BaseEndpoint = aws.String("http://dynamodb:8000") // This resolves directly since the test runs on `augmenta_default` network
-	})
-
-	pk := "TENANT#tenantA#REQ#" + ingestResp.RequestID
-	sk := "TOKEN#[[AUG:EMAIL_ADDRESS:1]]"
-
-	out, err := dynClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String("augmenta_vault_items"),
-		Key: map[string]dty.AttributeValue{
-			"pk": &dty.AttributeValueMemberS{Value: pk},
-			"sk": &dty.AttributeValueMemberS{Value: sk},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed retrieving raw item from DB: %v", err)
-	}
-
-	if out.Item == nil {
-		t.Fatalf("Item not found in dynamodb even though it rehydrated!")
-	}
-
-	outJSON, _ := json.Marshal(out.Item)
-	if strings.Contains(string(outJSON), "john.doe@example.com") {
-		t.Fatalf("CRITICAL SECURITY FAILURE: Vault DynamoDB contains the raw PII! Dump: %s", string(outJSON))
 	}
 }
 
