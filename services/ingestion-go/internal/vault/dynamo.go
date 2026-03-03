@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dty "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/crypto"
-	"github.com/lburdman/augmenta/services/ingestion-go/internal/errorsx"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
 )
 
@@ -266,29 +265,29 @@ func (v *DynamoVault) GetOriginal(ctx context.Context, tenantID, requestID, toke
 		},
 	})
 	if err != nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultReadFailed, "failed to get key item", err)
+		return "", fmt.Errorf("failed to get key item: %w", err)
 	}
 	if keyOut.Item == nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonTokenNotFound, "vault dek missing", nil)
+		return "", fmt.Errorf("vault dek missing")
 	}
 
 	var keyItem VaultKeyItem
 	if err := attributevalue.UnmarshalMap(keyOut.Item, &keyItem); err != nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultReadFailed, "unmarshal key item failed", err)
+		return "", fmt.Errorf("unmarshal key item failed: %w", err)
 	}
 
 	if getNow() > keyItem.ExpiresAt {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonTokenExpired, "token expired", nil)
+		return "", fmt.Errorf("token expired")
 	}
 
 	var dek []byte
 	if v.encMode == "dev" {
 		dek, err = crypto.UnwrapDEK_DEV(v.masterKey, keyItem.WrappedDEK)
 		if err != nil {
-			return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultDecryptFailed, "unwrap dek failed", err)
+			return "", fmt.Errorf("unwrap dek failed: %w", err)
 		}
 	} else {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultDecryptFailed, "unsupported encryption mode", nil)
+		return "", fmt.Errorf("unsupported encryption mode")
 	}
 
 	itemOut, err := v.client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -299,25 +298,25 @@ func (v *DynamoVault) GetOriginal(ctx context.Context, tenantID, requestID, toke
 		},
 	})
 	if err != nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultReadFailed, "get mapped item failed", err)
+		return "", fmt.Errorf("get mapped item failed: %w", err)
 	}
 	if itemOut.Item == nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonTokenNotFound, "token not found", nil)
+		return "", fmt.Errorf("token not found")
 	}
 
 	var item VaultItem
 	if err := attributevalue.UnmarshalMap(itemOut.Item, &item); err != nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultReadFailed, "unmarshal map failed", err)
+		return "", fmt.Errorf("unmarshal map failed: %w", err)
 	}
 
 	if getNow() > item.ExpiresAt {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonTokenExpired, "token expired", nil)
+		return "", fmt.Errorf("token expired")
 	}
 
 	aad := []byte(fmt.Sprintf("tenantId=%s|requestId=%s|token=%s|entityType=%s", tenantID, requestID, token, item.EntityType))
 	plaintext, err := crypto.DecryptValue(dek, item.Nonce, item.Ciphertext, aad)
 	if err != nil {
-		return "", errorsx.NewAppError(requestID, tenantID, "", errorsx.StepRehydrate, errorsx.ReasonVaultDecryptFailed, "decrypt item failed", err)
+		return "", fmt.Errorf("decrypt item failed: %w", err)
 	}
 
 	return string(plaintext), nil
