@@ -62,3 +62,19 @@ services:
     command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
     ports:
       - "8001:8000"
+
+  demo-ui:
+    volumes:
+      - ./services/demo-ui-react:/app
+      - /app/node_modules
+    build:
+      context: ./services/demo-ui-react
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_INGESTION_URL=http://localhost:8080/ingest/webhook/demo
+      - VITE_AUDIT_URL=http://localhost:8080/admin/audit
+      - VITE_GATEWAY_URL=http://localhost:7001/last
+    depends_on:
+      - ingestion-go
+      - llm-gateway-go
