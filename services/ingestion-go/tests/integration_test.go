@@ -2,11 +2,17 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/audit"
 	"github.com/lburdman/augmenta/services/ingestion-go/internal/types"
@@ -135,6 +141,33 @@ func TestIngestionForwardingWithoutPII(t *testing.T) {
 	rawJSON, _ := json.Marshal(gatewayResp)
 	if strings.Contains(string(rawJSON), "john.doe@example.com") {
 		t.Errorf("CRITICAL FAILURE: LLM Gateway payload contained raw PII email. Text received: %s", string(rawJSON))
+	}
+
+	// 5. Verify that DynamoDB VaultItems table does not contain plaintext PII
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion("us-east-1"),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "")),
+	)
+	if err != nil {
+		t.Fatalf("Failed to load AWS config: %v", err)
+	}
+
+	dynamoClient := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
+		o.BaseEndpoint = aws.String("http://augmenta-dynamodb-1:8000")
+	})
+
+	scanOut, err := dynamoClient.Scan(context.TODO(), &dynamodb.ScanInput{
+		TableName: aws.String("augmenta_vault_items"),
+	})
+	if err != nil {
+		t.Fatalf("Failed to scan dynamodb: %v", err)
+	}
+
+	for _, item := range scanOut.Items {
+		itemBytes, _ := json.Marshal(item)
+		if strings.Contains(string(itemBytes), "john.doe@example.com") {
+			t.Errorf("CRITICAL FAILURE: Found plaintext PII in DynamoDB VaultItems! Item: %s", string(itemBytes))
+		}
 	}
 }
 
