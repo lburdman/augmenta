@@ -43,6 +43,10 @@ export VAULT_MASTER_KEY_B64=$(./scripts/gen_dev_master_key.sh)
 make run
 ```
 
+### Try the Augmenta Tokenization Demo UI
+1. Navigate to Web Gateway: [http://localhost:3000](http://localhost:3000)
+2. Submit a phrase with dummy PII like: `My email is test@company.com and my phone is +1-800-555-0199` to watch the pipeline tokenize, invoke the gateway echo, and successfully rehydrate downstream!
+
 ## API Endpoints
 
 ### 1. Ingestion Service (Go)
