@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	ingestionURL  = "http://ingestion-go:8080/ingest/webhook/demo"
-	gatewayURL    = "http://llm-gateway-go:7001/last"
-	auditAdminURL = "http://ingestion-go:8080/admin/audit"
+	ingestionURL  = "http://augmenta-ingestion-go-1:8080/ingest/webhook/demo"
+	gatewayURL    = "http://augmenta-llm-gateway-go-1:7001/last"
+	auditAdminURL = "http://augmenta-ingestion-go-1:8080/admin/audit"
 )
 
 func TestIngestionUnknownFlow(t *testing.T) {
@@ -23,7 +23,7 @@ func TestIngestionUnknownFlow(t *testing.T) {
 	payload := map[string]string{"text": "Does not matter"}
 	body, _ := json.Marshal(payload)
 
-	req, _ := http.NewRequest(http.MethodPost, "http://ingestion-go:8080/ingest/webhook/unknown_source", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, "http://augmenta-ingestion-go-1:8080/ingest/webhook/unknown_source", bytes.NewReader(body))
 	req.Header.Set("X-Tenant-ID", "tenantA")
 	
 	resp, err := client.Do(req)
@@ -146,7 +146,7 @@ func TestIngestionRehydrationFailClosed(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	req, err := http.NewRequest(http.MethodPost, "http://ingestion-go:8080/ingest/webhook/expire_demo", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, "http://augmenta-ingestion-go-1:8080/ingest/webhook/expire_demo", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
