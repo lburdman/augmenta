@@ -25,6 +25,24 @@ flows:
         new_value: "<REDACTED>"
 ```
 
+## Vault Envelope Encryption (Phase 4B)
+
+By default, the Vault operates via AWS DynamoDB using Envelope Encryption (AES-GCM). This secures tokenized `Original` strings from leaking inside underlying Datastores.
+
+**Storage Mechanics**:
+- `augmenta_vault_keys`: Dedicated table containing `wrapped_dek`. Key material is uniquely generated per `(TenantId, RequestId)`.
+- `augmenta_vault_items`: Dedicated table containing the Nonce and AES-GCM cipher payloads bounding tokens correctly with AAD validations. 
+
+**Local Configuration**:
+During standard development modes (`VAULT_ENCRYPTION_MODE=dev`), the internal DEKs are wrapped using an AES-256 Master Key provided via Environment Variable. 
+
+To run safely locally, use the provided generation script matching Compose bindings:
+```bash
+# Export the 32-byte B64 generated master key to your environment instance
+export VAULT_MASTER_KEY_B64=$(./scripts/gen_dev_master_key.sh)
+make run
+```
+
 ## API Endpoints
 
 ### 1. Ingestion Service (Go)
