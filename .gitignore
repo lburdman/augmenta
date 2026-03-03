@@ -78,3 +78,4 @@ venv.bak/
 # Misc
 *.log
 *.sqlite3
+.env
